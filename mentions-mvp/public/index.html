@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Growl Mentions MVP</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="search-panel">
+        <div>
+          <p class="eyebrow">Reddit discovery</p>
+          <h1>Find public Singapore mentions</h1>
+          <p class="intro">
+            Search Reddit on demand for keyword mentions so you can decide which conversations are worth joining.
+          </p>
+        </div>
+
+        <form id="search-form" class="search-form">
+          <label>
+            <span>Search name</span>
+            <input id="search-name" name="searchName" type="text" placeholder="Example: Launch monitoring" required />
+          </label>
+
+          <label>
+            <span>Keywords</span>
+            <input id="keywords" name="keywords" type="text" placeholder="pricing, delivery, waitlist" required />
+          </label>
+
+          <div class="field-row">
+            <label>
+              <span>Region</span>
+              <select id="region" name="region">
+                <option value="singapore">Singapore</option>
+              </select>
+            </label>
+
+            <label>
+              <span>Time range</span>
+              <select id="time-range" name="timeRange">
+                <option value="14" selected>Last 14 days</option>
+                <option value="7">Last 7 days</option>
+                <option value="30">Last 30 days</option>
+              </select>
+            </label>
+          </div>
+
+          <button id="search-button" type="submit">Search Reddit</button>
+        </form>
+      </section>
+
+      <section class="results-panel" aria-live="polite">
+        <div class="results-header">
+          <h2>Results</h2>
+          <p id="results-summary">Run a search to see matching posts and comments.</p>
+        </div>
+        <div id="results-list" class="results-list"></div>
+      </section>
+    </main>
+
+    <script src="./app.js" type="module"></script>
+  </body>
+</html>
