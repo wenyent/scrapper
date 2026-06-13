@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reddit Monitor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #F5F3EE;
+    --surface: #FFFFFF;
+    --surface-2: #EDEBE6;
+    --border: #D6D3CB;
+    --border-strong: #B5B2A8;
+    --text: #1A1917;
+    --text-2: #5A5854;
+    --text-3: #8A8783;
+    --accent: #1A1917;
+    --accent-fg: #FFFFFF;
+    --tag-bg: #1A1917;
+    --tag-fg: #F5F3EE;
+    --badge-post-bg: #EAF3DE;
+    --badge-post-fg: #3B6D11;
+    --badge-comment-bg: #E6F1FB;
+    --badge-comment-fg: #185FA5;
+    --highlight-bg: #FAEEDA;
+    --highlight-fg: #633806;
+    --danger-bg: #FCEBEB;
+    --danger: #A32D2D;
+    --radius: 6px;
+    --radius-lg: 10px;
+  }
+
+  body { font-family: 'IBM Plex Sans', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.5; min-height: 100vh; }
+  .layout { max-width: 860px; margin: 0 auto; padding: 40px 24px 80px; }
+
+  /* Header */
+  .header { display: flex; align-items: baseline; gap: 12px; margin-bottom: 32px; padding-bottom: 20px; border-bottom: 1px solid var(--border); }
+  .header h1 { font-family: 'IBM Plex Mono', monospace; font-size: 18px; font-weight: 500; letter-spacing: -0.02em; }
+  .header .sub { font-size: 13px; color: var(--text-3); font-family: 'IBM Plex Mono', monospace; }
+
+  /* Panel */
+  .panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px 24px; margin-bottom: 16px; }
+  .panel-label { font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-3); margin-bottom: 14px; }
+
+  /* Keyword input */
+  .keyword-row { display: flex; gap: 8px; margin-bottom: 12px; }
+  .keyword-row input { flex: 1; height: 36px; padding: 0 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg); color: var(--text); font-family: 'IBM Plex Mono', monospace; font-size: 13px; outline: none; transition: border-color 0.15s; }
+  .keyword-row input:focus { border-color: var(--border-strong); }
+  .keyword-row input::placeholder { color: var(--text-3); }
+  .keyword-row input:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* Buttons */
+  .btn { height: 36px; padding: 0 16px; border: 1px solid var(--border-strong); border-radius: var(--radius); background: var(--surface); color: var(--text); font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; font-weight: 500; cursor: pointer; white-space: nowrap; transition: background 0.12s; }
+  .btn:hover { background: var(--surface-2); }
+  .btn-primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+  .btn-primary:hover { background: #333; border-color: #333; }
+  .btn-primary:disabled { background: var(--border-strong); border-color: var(--border-strong); cursor: not-allowed; opacity: 0.7; }
+  .btn-ghost { border-color: var(--border); color: var(--text-3); font-size: 12px; height: 30px; padding: 0 12px; }
+  .btn-ghost:hover { background: var(--surface-2); color: var(--text-2); border-color: var(--border-strong); }
+
+  /* Tags */
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; min-height: 28px; }
+  .tag { display: inline-flex; align-items: center; gap: 6px; background: var(--tag-bg); color: var(--tag-fg); font-family: 'IBM Plex Mono', monospace; font-size: 12px; padding: 4px 10px; border-radius: 4px; animation: tagIn 0.15s ease; }
+  @keyframes tagIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+  .tag-remove { cursor: pointer; opacity: 0.5; font-size: 15px; line-height: 1; background: none; border: none; color: inherit; padding: 0; transition: opacity 0.1s; }
+  .tag-remove:hover { opacity: 1; }
+  .tag-empty { font-size: 12px; color: var(--text-3); font-style: italic; padding: 4px 0; }
+
+  /* Controls row */
+  .controls-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
+
+  /* Timeframe */
+  .timeframe-grid { display: flex; gap: 6px; flex-wrap: wrap; }
+  .tf-btn { height: 30px; padding: 0 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); color: var(--text-2); font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.12s; }
+  .tf-btn:hover { border-color: var(--border-strong); color: var(--text); }
+  .tf-btn.active { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+
+  /* Subreddits */
+  .sub-list { display: flex; flex-direction: column; gap: 6px; }
+  .sub-item { display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; }
+  .sub-item input[type="checkbox"] { width: 14px; height: 14px; accent-color: var(--accent); cursor: pointer; }
+  .sub-item span { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--text-2); }
+  .sub-item input:checked + span { color: var(--text); }
+
+  /* Search row */
+  .search-row { display: flex; align-items: center; justify-content: space-between; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
+  .search-row-right { display: flex; align-items: center; gap: 10px; }
+
+  /* Status bar */
+  .status-bar { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 14px 20px; margin-bottom: 16px; display: flex; align-items: center; gap: 12px; }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border-strong); flex-shrink: 0; transition: background 0.3s; }
+  .status-dot.fetching { background: #EF9F27; animation: pulse 1s infinite; }
+  .status-dot.done { background: #639922; }
+  .status-dot.error { background: var(--danger); }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  .status-text { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--text-2); flex: 1; }
+  .status-count { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--text-3); }
+
+  /* Results header */
+  .results-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .results-summary { font-size: 13px; color: var(--text-2); }
+  .results-summary strong { color: var(--text); font-weight: 500; }
+
+  /* Result cards */
+  .result-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px 20px; margin-bottom: 10px; transition: border-color 0.12s; animation: cardIn 0.18s ease both; }
+  @keyframes cardIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+  .result-card:hover { border-color: var(--border-strong); }
+
+  .card-meta { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+  .badge { display: inline-flex; align-items: center; font-size: 10px; font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; padding: 2px 7px; border-radius: 4px; }
+  .badge-post { background: var(--badge-post-bg); color: var(--badge-post-fg); }
+  .badge-comment { background: var(--badge-comment-bg); color: var(--badge-comment-fg); }
+  .badge-sub { background: var(--surface-2); color: var(--text-2); font-family: 'IBM Plex Mono', monospace; font-size: 10px; padding: 2px 7px; border-radius: 4px; }
+  .card-date { font-size: 11px; color: var(--text-3); font-family: 'IBM Plex Mono', monospace; margin-left: auto; }
+
+  .card-title { font-size: 14px; font-weight: 500; color: var(--text); text-decoration: none; display: block; margin-bottom: 6px; line-height: 1.4; }
+  .card-title:hover { color: #444; text-decoration: underline; }
+  .card-snippet { font-size: 13px; color: var(--text-2); line-height: 1.55; }
+
+  mark { background: var(--highlight-bg); color: var(--highlight-fg); border-radius: 3px; padding: 0 3px; font-weight: 500; }
+
+  .card-keywords { display: flex; gap: 5px; margin-top: 10px; flex-wrap: wrap; }
+  .kw-pill { font-size: 11px; font-family: 'IBM Plex Mono', monospace; color: var(--highlight-fg); background: var(--highlight-bg); padding: 2px 7px; border-radius: 3px; }
+
+  /* Empty & error states */
+  .empty-state { text-align: center; padding: 60px 20px; color: var(--text-3); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); }
+  .empty-state p { font-size: 13px; margin-top: 6px; }
+
+  .error-banner { display: flex; align-items: flex-start; gap: 10px; background: var(--danger-bg); border: 1px solid #F7C1C1; border-radius: var(--radius-lg); padding: 12px 16px; margin-bottom: 12px; }
+  .error-banner-text { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--danger); flex: 1; line-height: 1.6; }
+  .error-banner-close { background: none; border: none; cursor: pointer; color: var(--danger); opacity: 0.6; font-size: 16px; padding: 0; line-height: 1; flex-shrink: 0; }
+  .error-banner-close:hover { opacity: 1; }
+
+  /* Spinner inside search button */
+  .spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid rgba(255,255,255,0.4); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; margin-right: 6px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="layout">
+
+  <div class="header">
+    <h1>Reddit Keywords Scrapper</h1>
+    <span class="sub">// developed by Growl.SG</span>
+  </div>
+
+  <div class="panel">
+    <div class="panel-label">Keywords</div>
+    <div class="keyword-row">
+      <input type="text" id="keyword-input" placeholder="e.g. hawker food" />
+      <button class="btn btn-primary" id="add-btn" onclick="addKeyword()">Add</button>
+    </div>
+    <div class="tags" id="tags-container">
+      <span class="tag-empty">No keywords added yet</span>
+    </div>
+
+    <div class="controls-row">
+      <div>
+        <div class="panel-label" style="margin-bottom:10px">Timeframe</div>
+        <div class="timeframe-grid">
+          <button class="tf-btn" onclick="setTimeframe(this)">1 week</button>
+          <button class="tf-btn active" onclick="setTimeframe(this)">2 weeks</button>
+          <button class="tf-btn" onclick="setTimeframe(this)">1 month</button>
+          <button class="tf-btn" onclick="setTimeframe(this)">2 months</button>
+          <button class="tf-btn" onclick="setTimeframe(this)">3 months</button>
+          <button class="tf-btn" onclick="setTimeframe(this)">4 months</button>
+        </div>
+      </div>
+      <div>
+        <div class="panel-label" style="margin-bottom:10px">Subreddits</div>
+        <div class="sub-list" id="sub-list">
+          <label class="sub-item"><input type="checkbox" value="singapore" checked> <span>r/singapore</span></label>
+          <label class="sub-item"><input type="checkbox" value="askSingapore" checked> <span>r/askSingapore</span></label>
+          <label class="sub-item"><input type="checkbox" value="askSingaporeans" checked> <span>r/askSingaporeans</span></label>
+          <label class="sub-item"><input type="checkbox" value="SingaporePR" checked> <span>r/SingaporePR</span></label>
+          <label class="sub-item"><input type="checkbox" value="SingaporeEats" checked> <span>r/SingaporeEats</span></label>
+        </div>
+      </div>
+    </div>
+
+    <div class="search-row">
+      <button class="btn btn-ghost" id="clear-btn" onclick="clearAll()" style="display:none">Clear results</button>
+      <div class="search-row-right">
+        <span id="search-hint" style="font-size:12px;color:var(--text-3);font-family:'IBM Plex Mono',monospace"></span>
+        <button class="btn btn-primary" id="search-btn" style="padding:0 28px;height:38px" onclick="runSearch()">Search</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="status-bar" id="status-bar">
+    <div class="status-dot" id="status-dot"></div>
+    <span class="status-text" id="status-text">Add keywords, select timeframe, relevant subreddits, and hit Search!</span>
+    <span class="status-count" id="status-count"></span>
+  </div>
+
+  <div id="error-container"></div>
+
+  <div id="results-header" style="display:none" class="results-header">
+    <div class="results-summary" id="results-summary"></div>
+  </div>
+  <div id="results-container"></div>
+
+</div>
+<script>
+  const BASE = 'https://arctic-shift.photon-reddit.com';
+
+  const TIMEFRAME_OFFSET = {
+    '1 week': '7d', '2 weeks': '14d', '1 month': '30d',
+    '2 months': '60d', '3 months': '90d', '4 months': '120d',
+  };
+
+  let keywords = [];
+  let activeTimeframe = '2 weeks';
+  let isFetching = false;
+  let lastResultCount = 0;
+
+  // ── UI helpers ───────────────────────────────────────────────
+
+  function addKeyword() {
+    const input = document.getElementById('keyword-input');
+    const val = input.value.trim();
+    if (!val) return;
+    if (keywords.includes(val)) { input.value = ''; input.focus(); return; }
+    keywords.push(val);
+    renderTags();
+    updateHint();
+    input.value = '';
+    input.focus();
+  }
+
+  function renderTags() {
+    const c = document.getElementById('tags-container');
+    if (!keywords.length) { c.innerHTML = '<span class="tag-empty">No keywords added yet</span>'; return; }
+    c.innerHTML = keywords.map((k, i) =>
+      `<span class="tag" style="animation-delay:${i * 0.04}s">${esc(k)} <button class="tag-remove" data-kw="${esc(k)}" title="Remove keyword">×</button></span>`
+    ).join('');
+  }
+
+  function setTimeframe(btn) {
+    document.querySelectorAll('.tf-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    activeTimeframe = btn.textContent.trim();
+  }
+
+  function getSelectedSubs() {
+    return [...document.querySelectorAll('#sub-list input:checked')].map(i => i.value);
+  }
+
+  function setStatus(state, text, count) {
+    document.getElementById('status-dot').className = 'status-dot' + (state ? ' ' + state : '');
+    document.getElementById('status-text').textContent = text;
+    document.getElementById('status-count').textContent = count || '';
+  }
+
+  function setSearching(on) {
+    isFetching = on;
+    const btn = document.getElementById('search-btn');
+    const input = document.getElementById('keyword-input');
+    const addBtn = document.getElementById('add-btn');
+    btn.disabled = on;
+    input.disabled = on;
+    addBtn.disabled = on;
+    btn.innerHTML = on
+      ? '<span class="spinner"></span>Searching…'
+      : 'Search';
+    // lock subreddit checkboxes and timeframe during fetch
+    document.querySelectorAll('#sub-list input, .tf-btn').forEach(el => { el.disabled = on; });
+  }
+
+  function updateHint() {
+    const subs = getSelectedSubs();
+    const hint = document.getElementById('search-hint');
+    if (!keywords.length || !subs.length) { hint.textContent = ''; return; }
+    const calls = keywords.length * subs.length * 2;
+    hint.textContent = `${calls} API call${calls !== 1 ? 's' : ''}`;
+  }
+
+  function clearAll() {
+    document.getElementById('results-container').innerHTML = '';
+    document.getElementById('results-header').style.display = 'none';
+    document.getElementById('error-container').innerHTML = '';
+    document.getElementById('clear-btn').style.display = 'none';
+    lastResultCount = 0;
+    setStatus('', 'Enter keywords and press Search');
+    updateHint();
+  }
+
+  // ── Fetch logic ──────────────────────────────────────────────
+
+  async function fetchPosts(keyword, subreddit, after) {
+    const p = new URLSearchParams({ query: keyword, subreddit, after, limit: '100', sort: 'desc' });
+    const res = await fetch(`${BASE}/api/posts/search?${p}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const json = await res.json();
+    return (json.data || []).map(item => ({ ...item, _type: 'post', _kw: keyword }));
+  }
+
+  async function fetchComments(keyword, subreddit, after) {
+    const p = new URLSearchParams({ body: keyword, subreddit, after, limit: '100', sort: 'desc' });
+    const res = await fetch(`${BASE}/api/comments/search?${p}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const json = await res.json();
+    return (json.data || []).map(item => ({ ...item, _type: 'comment', _kw: keyword }));
+  }
+
+  async function runSearch() {
+    if (isFetching) return;
+    if (!keywords.length) {
+      flashInput();
+      setStatus('', 'Add at least one keyword first');
+      return;
+    }
+    const subs = getSelectedSubs();
+    if (!subs.length) { setStatus('', 'Select at least one subreddit'); return; }
+
+    setSearching(true);
+    document.getElementById('results-container').innerHTML = '';
+    document.getElementById('results-header').style.display = 'none';
+    document.getElementById('error-container').innerHTML = '';
+    document.getElementById('clear-btn').style.display = 'none';
+
+    const after = TIMEFRAME_OFFSET[activeTimeframe] || '14d';
+    const tasks = [];
+    for (const kw of keywords) {
+      for (const sub of subs) {
+        tasks.push({ kw, sub, type: 'post' });
+        tasks.push({ kw, sub, type: 'comment' });
+      }
+    }
+
+    const total = tasks.length;
+    let done = 0;
+    const errors = [];
+    const allResults = [];
+    const seenIds = new Set();
+
+    setStatus('fetching', `Fetching… 0 / ${total} calls done`, `0 / ${total}`);
+
+    const CONCURRENCY = 5;
+    let idx = 0;
+
+    async function worker() {
+      while (idx < tasks.length) {
+        const task = tasks[idx++];
+        try {
+          const items = task.type === 'post'
+            ? await fetchPosts(task.kw, task.sub, after)
+            : await fetchComments(task.kw, task.sub, after);
+          for (const item of items) {
+            const uid = (item._type === 'post' ? 'p_' : 'c_') + item.id;
+            if (seenIds.has(uid)) continue;
+            seenIds.add(uid);
+            allResults.push(item);
+          }
+        } catch (e) {
+          errors.push(`r/${task.sub} · "${task.kw}" · ${task.type}: ${e.message}`);
+        }
+        done++;
+        setStatus('fetching', `Fetching… ${done} / ${total} calls done`, `${done} / ${total}`);
+      }
+    }
+
+    await Promise.all(Array.from({ length: CONCURRENCY }, worker));
+    allResults.sort((a, b) => (b.created_utc || 0) - (a.created_utc || 0));
+    renderResults(allResults, errors, subs);
+    setSearching(false);
+  }
+
+  // ── Render ───────────────────────────────────────────────────
+
+  function esc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function highlight(text, kws) {
+    if (!text) return '';
+    let s = esc(text);
+    for (const kw of kws) {
+      const re = new RegExp('(' + kw.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + ')', 'gi');
+      s = s.replace(re, '<mark>$1</mark>');
+    }
+    return s;
+  }
+
+  function fmtDate(epoch) {
+    if (!epoch) return '';
+    return new Date(epoch * 1000).toLocaleDateString('en-SG', { day: 'numeric', month: 'short', year: 'numeric' });
+  }
+
+  function redditUrl(item) {
+    if (item._type === 'post') return `https://reddit.com/r/${item.subreddit}/comments/${item.id}`;
+    const postId = item.link_id ? item.link_id.replace('t3_','') : '';
+    return postId
+      ? `https://reddit.com/r/${item.subreddit}/comments/${postId}/_/${item.id}`
+      : `https://reddit.com/r/${item.subreddit}/comments/${item.id}`;
+  }
+
+  function matchedKws(item) {
+    const hay = ((item.title || '') + ' ' + (item.selftext || item.body || '')).toLowerCase();
+    return keywords.filter(kw => hay.includes(kw.toLowerCase()));
+  }
+
+  function flashInput() {
+    const input = document.getElementById('keyword-input');
+    input.style.borderColor = 'var(--danger)';
+    setTimeout(() => { input.style.borderColor = ''; }, 1200);
+  }
+
+  function renderResults(results, errors, subs) {
+    const header = document.getElementById('results-header');
+    const container = document.getElementById('results-container');
+    const summary = document.getElementById('results-summary');
+    const clearBtn = document.getElementById('clear-btn');
+
+    // Error banner
+    if (errors.length) {
+      document.getElementById('error-container').innerHTML = `
+        <div class="error-banner">
+          <div class="error-banner-text">
+            ⚠ ${errors.length} call${errors.length > 1 ? 's' : ''} failed:<br>
+            ${errors.slice(0, 5).map(esc).join('<br>')}
+            ${errors.length > 5 ? `<br>+${errors.length - 5} more` : ''}
+          </div>
+          <button class="error-banner-close" onclick="this.closest('.error-banner').remove()" title="Dismiss">×</button>
+        </div>`;
+    }
+
+    header.style.display = 'flex';
+    clearBtn.style.display = 'inline-flex';
+    lastResultCount = results.length;
+
+    if (!results.length) {
+      summary.innerHTML = '<strong>0 results</strong>';
+      container.innerHTML = `
+        <div class="empty-state">
+          <p style="font-size:22px;margin-bottom:8px">∅</p>
+          <p>No mentions found in the selected subreddits.</p>
+          <p>Try a different keyword or extend the timeframe.</p>
+        </div>`;
+      setStatus('done', 'Done — no results found');
+      return;
+    }
+
+    summary.innerHTML = `<strong>${results.length} result${results.length !== 1 ? 's' : ''}</strong> across ${subs.length} subreddit${subs.length !== 1 ? 's' : ''} · ${activeTimeframe}`;
+
+    container.innerHTML = results.map((item, i) => {
+      const isPost = item._type === 'post';
+      const title = item.title || (isPost ? '(no title)' : item.link_title || 'Comment');
+      const body = isPost ? (item.selftext || '') : (item.body || '');
+      const snippet = body.length > 240 ? body.slice(0, 240) + '…' : body;
+      const sub = item.subreddit || '';
+      const matched = matchedKws(item);
+      const url = redditUrl(item);
+      const delay = Math.min(i * 0.03, 0.5);
+
+      return `<div class="result-card" style="animation-delay:${delay}s">
+        <div class="card-meta">
+          <span class="badge ${isPost ? 'badge-post' : 'badge-comment'}">${isPost ? 'Post' : 'Comment'}</span>
+          <span class="badge-sub">r/${esc(sub)}</span>
+          <span class="card-date">${fmtDate(item.created_utc)}</span>
+        </div>
+        <a href="${esc(url)}" target="_blank" rel="noopener" class="card-title">${highlight(title, keywords)}</a>
+        ${snippet ? `<div class="card-snippet">${highlight(snippet, keywords)}</div>` : ''}
+        ${matched.length ? `<div class="card-keywords">${matched.map(k => `<span class="kw-pill">${esc(k)}</span>`).join('')}</div>` : ''}
+      </div>`;
+    }).join('');
+
+    const errSuffix = errors.length ? ` · ${errors.length} error${errors.length > 1 ? 's' : ''}` : '';
+    setStatus('done', `Done — ${results.length} result${results.length !== 1 ? 's' : ''} found${errSuffix}`);
+  }
+
+  // ── Event listeners ──────────────────────────────────────────
+
+  document.getElementById('keyword-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') addKeyword();
+  });
+
+  document.getElementById('tags-container').addEventListener('click', e => {
+    const btn = e.target.closest('.tag-remove');
+    if (!btn) return;
+    keywords = keywords.filter(k => k !== btn.dataset.kw);
+    renderTags();
+    updateHint();
+  });
+
+  // Update call count hint when subreddits change
+  document.getElementById('sub-list').addEventListener('change', updateHint);
+</script>
+</body>
+</html>
